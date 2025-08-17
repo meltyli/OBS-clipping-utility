@@ -47,6 +47,10 @@ def script_properties():
     toast_duration = obs.obs_properties_add_float_slider(props, "toast_duration", "Notification Duration:", 0.5, 5, 0.05)
     obs.obs_property_set_long_description(toast_duration, "How long the notifications stay on screen")
     
+    # Add auto update interval setting
+    auto_update_interval = obs.obs_properties_add_float_slider(props, "auto_update_interval", "Auto Update Game Interval (seconds):", 0, 30, 0.5)
+    obs.obs_property_set_long_description(auto_update_interval, "How often to automatically update the current active game (0 to disable)")
+    
     obs.obs_properties_add_bool(props, "enabled", "Enable Clipping ")
     
     enable_notif = obs.obs_properties_add_bool(props, "enable_notif", "Notification On Save ")
@@ -72,6 +76,11 @@ def script_load(settings):
     sett = settings
     
     obs.timer_add(auto_replay_buffer, int(obs.obs_data_get_double(sett, "refresh_interval") * 1000))
+    
+    # Add timer for auto updating the current game window
+    auto_update_interval = obs.obs_data_get_double(sett, "auto_update_interval")
+    if auto_update_interval > 0:
+        obs.timer_add(auto_update_game, int(auto_update_interval * 1000))
 
     global query_hotkey_id
     query_hotkey_id = obs.obs_hotkey_register_frontend("query_clipping", "OBSAutoReplay: Check If Replay Buffer Active", query_clipping_hotkey)
@@ -99,9 +108,19 @@ def script_defaults(settings):
     obs.obs_data_set_default_double(settings, "toast_duration", 1.5)
     obs.obs_data_set_default_bool(settings, "enabled", True)
     obs.obs_data_set_default_bool(settings, "enable_notif", True)
+    obs.obs_data_set_default_double(settings, "auto_update_interval", 0)  # Default is 0 (disabled)
+
+def script_update(settings):
+    # Remove existing auto update timer and re-add with new interval
+    obs.timer_remove(auto_update_game)
+    
+    auto_update_interval = obs.obs_data_get_double(settings, "auto_update_interval")
+    if auto_update_interval > 0:
+        obs.timer_add(auto_update_game, int(auto_update_interval * 1000))
 
 def script_unload():
     obs.timer_remove(auto_replay_buffer)
+    obs.timer_remove(auto_update_game)
     obs.obs_hotkey_unregister("query_clipping")
     obs.obs_hotkey_unregister("update_game")
     toaster.clear_toasts()
@@ -319,3 +338,9 @@ def update_game_hotkey(is_pressed):
 def get_session_duration():
     global start_time
     return str(datetime.now() - start_time).split('.')[0]
+
+# Add new function to automatically update the game
+def auto_update_game():
+    if obs.obs_frontend_replay_buffer_active():
+        global current_game
+        current_game = get_foreground_window()
