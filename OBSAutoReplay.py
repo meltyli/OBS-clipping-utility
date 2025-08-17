@@ -169,7 +169,8 @@ def obs_frontend_callback(event):
 def auto_replay_buffer():
     if not obs.obs_data_get_bool(sett, "enabled"):
         if obs.obs_frontend_replay_buffer_active():
-            obs.obs_frontend_replay_buffer_stop()
+            # obs.obs_frontend_replay_buffer_stop()
+            return
         return
 
     try:
@@ -204,7 +205,7 @@ def auto_replay_buffer():
             obs.obs_frontend_replay_buffer_start()
 
         elif (obs.obs_frontend_replay_buffer_active() and obs.obs_source_get_width(source) == 0):
-            obs.obs_frontend_replay_buffer_stop()
+            # obs.obs_frontend_replay_buffer_stop()
             
             if previous_profile:
                 obs.obs_frontend_set_current_profile(previous_profile)
